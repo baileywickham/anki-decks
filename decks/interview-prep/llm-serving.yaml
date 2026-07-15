@@ -1,0 +1,7 @@
+deck: Interview Prep::LLM Serving
+cards:
+  - id: continuous-batching-01
+    type: basic
+    front: What is continuous batching in LLM serving?
+    back: Scheduling that admits new requests into a running batch at each decode step instead of waiting for the batch to finish, keeping GPU utilization high (vLLM-style).
+    tags: [llm-serving]
