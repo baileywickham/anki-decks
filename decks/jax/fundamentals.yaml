@@ -1,0 +1,141 @@
+deck: JAX::Fundamentals
+cards:
+  - id: jax-immutable-01
+    type: basic
+    front: Why does x[0] = 5.0 raise an error on a JAX array?
+    back: >
+      JAX arrays are immutable — there is no in-place mutation. You make a
+      modified copy with the functional-update syntax: x.at[0].set(5.0),
+      which returns a new array and leaves x untouched.
+    tags: [jax]
+
+  - id: jax-immutable-02
+    type: code
+    front: Functionally update index 3 of JAX array x to 7.0 (x is immutable).
+    back: |
+      x = x.at[3].set(7.0)
+    tags: [jax]
+
+  - id: jax-broadcast-01
+    type: cloze
+    text: >
+      NumPy/JAX broadcasting aligns shapes starting from the
+      {{c1::trailing (rightmost)}} dimensions, and a dimension of size
+      {{c2::1}} is stretched to match the other array.
+    tags: [jax, numpy]
+
+  - id: jax-keepdims-01
+    type: basic
+    front: >
+      m has shape (3, 2). What are the shapes of m.sum(axis=1) and
+      m.sum(axis=1, keepdims=True), and why does keepdims matter for m / sum?
+    back: >
+      (3,) without keepdims, (3, 1) with it. m / (3,) errors — broadcasting
+      aligns from the right and 2 ≠ 3. m / (3, 1) broadcasts correctly,
+      dividing each row by its own sum.
+    tags: [jax, numpy]
+
+  - id: jax-axis-01
+    type: basic
+    front: For a 2-D array, what do axis=0 and axis=1 mean in reductions like sum/mean?
+    back: >
+      axis=k is the axis that gets collapsed. axis=0 collapses down the
+      columns (one result per column); axis=1 collapses across each row
+      (one result per row). For row sums of an (n, d) matrix use axis=1.
+    tags: [jax, numpy]
+
+  - id: jax-rowcol-01
+    type: code
+    front: "m is a 2-D array: select row 2, then select column 2."
+    back: |
+      row = m[2]        # shape (n_cols,)
+      col = m[:, 2]     # shape (n_rows,)
+    tags: [jax, numpy]
+
+  - id: jax-matmul-01
+    type: code
+    front: Matrix-multiply data X of shape (n, d) with weights W of shape (d, k) in jnp.
+    back: |
+      out = X @ W        # shape (n, k)
+      # equivalently jnp.matmul(X, W); jnp.dot(w, x) on two 1-D vectors gives a scalar
+    tags: [jax, numpy]
+
+  - id: jax-matmul-02
+    type: basic
+    front: What shape is (3, 4) @ (4, 2), and what is the general rule?
+    back: >
+      (3, 2). Inner dimensions must match and disappear:
+      (a, b) @ (b, c) → (a, c).
+    tags: [jax, numpy]
+
+  - id: jax-prng-01
+    type: basic
+    front: Why must you never use the same JAX PRNG key twice?
+    back: >
+      Random functions are deterministic in the key — same key, same
+      function ⇒ identical output. Reuse silently gives duplicate "random"
+      numbers (e.g. two layers initialized with identical weights). Split
+      the key and use each subkey once.
+    tags: [jax]
+
+  - id: jax-prng-02
+    type: code
+    front: From one JAX PRNG key, get one independent key per layer for n layers.
+    back: |
+      keys = jax.random.split(key, n)   # n new keys; iterate or index
+    tags: [jax]
+
+  - id: jax-prng-03
+    type: basic
+    front: Why does JAX use explicit PRNG keys instead of a global seed like numpy?
+    back: >
+      jit requires pure functions (same inputs → same outputs). A hidden
+      global RNG state breaks that, so randomness is passed in explicitly
+      as a key argument.
+    tags: [jax]
+
+  - id: jax-randint-01
+    type: basic
+    front: What values can jax.random.randint(key, shape, 0, 6) return?
+    back: >
+      0 through 5 — the upper bound is exclusive (like Python's range).
+      randint(key, shape, 0, 1) can only ever return 0.
+    tags: [jax]
+
+  - id: jax-jit-trace-01
+    type: basic
+    front: When does a plain print() inside a @jax.jit function actually execute?
+    back: >
+      Only at trace time — once per compilation, printing abstract tracers,
+      not values. Later calls run the compiled code and skip your Python
+      entirely. For runtime values use jax.debug.print.
+    tags: [jax]
+
+  - id: jax-jit-static-01
+    type: basic
+    front: What does static_argnums do in jax.jit, and what does it cost?
+    back: >
+      The marked argument is passed through as a concrete Python value at
+      trace time (so range(n), if n, shapes etc. work) instead of being
+      traced. Cost: it joins the compilation cache key, so every distinct
+      value triggers a fresh compile — use for config-like values, never data.
+    tags: [jax]
+
+  - id: jax-jit-retrace-01
+    type: basic
+    front: What triggers jax.jit to retrace/recompile a function on a later call?
+    back: >
+      A new argument signature: unseen shape or dtype (or a new value of a
+      static argument). The cache never evicts, so previously seen
+      signatures keep hitting their compiled version.
+    tags: [jax]
+
+  - id: py-nonlocal-01
+    type: basic
+    front: An inner function does count += 1 on a variable from the enclosing function and raises UnboundLocalError. Why, and what are the two fixes?
+    back: >
+      Assignment makes Python treat count as a new local, which is read
+      before it's bound. Declare `nonlocal count` (enclosing scope) or
+      `global count` (module scope) — or mutate a container instead,
+      e.g. count[0] += 1.
+    tags: [python]
