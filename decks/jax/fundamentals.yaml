@@ -16,6 +16,17 @@ cards:
       x = x.at[3].set(7.0)
     tags: [jax]
 
+  - id: jax-shape-01
+    type: basic
+    front: >
+      An array has shape (n, d) in numpy/JAX/PyTorch. Which number is rows
+      and which is columns?
+    back: >
+      n rows, d columns. Axis 0 indexes down the rows, axis 1 across the
+      columns, so x[i] is row i and x[i, j] is row i, column j. In ML data,
+      (n, d) = n samples, one per row, each with d features.
+    tags: [jax, numpy]
+
   - id: jax-broadcast-01
     type: cloze
     text: >
