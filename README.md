@@ -7,11 +7,17 @@ which syncs everywhere via AnkiWeb.
 ## Usage
 
 ```sh
-uv run build.py            # writes dist/*.apkg (one per top-level deck)
+uv run push.py             # upserts into live Anki via AnkiConnect + syncs AnkiWeb
 ```
 
-Then in desktop Anki: **File → Import** each changed `.apkg`, then **Sync**.
-Re-importing updates existing cards in place — review scheduling is preserved.
+`push.py` launches Anki if it isn't running, adds/updates cards in place
+(matched by the hidden AD-ID field), never deletes (orphans are flagged for
+manual review), and triggers an AnkiWeb sync so phones pick the changes up.
+Requires the AnkiConnect add-on (code `2055492159`).
+
+`uv run build.py` still produces `dist/*.apkg`, but **only for bootstrapping a
+brand-new collection** — never import an `.apkg` into a collection push.py
+already manages; the GUIDs won't match and every note gets duplicated.
 
 ## Authoring cards
 
