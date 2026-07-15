@@ -139,3 +139,102 @@ cards:
       `global count` (module scope) — or mutate a container instead,
       e.g. count[0] += 1.
     tags: [python]
+
+  - id: ml-acronym-mse-01
+    type: basic
+    front: "MSE — expand the acronym and give the formula."
+    back: >
+      Mean Squared Error: mean((pred − y)²). Average of squared prediction
+      errors. Squaring makes errors positive (no cancellation) and punishes
+      large misses disproportionately. Always reduces to a single scalar.
+    tags: [ml, acronym]
+
+  - id: ml-acronym-mae-01
+    type: basic
+    front: "MAE — expand the acronym, and how does it differ from MSE?"
+    back: >
+      Mean Absolute Error: mean(|pred − y|). Unlike MSE it weights all
+      errors linearly, so it's more robust to outliers — but it has a
+      non-differentiable kink at 0.
+    tags: [ml, acronym]
+
+  - id: ml-acronym-sgd-01
+    type: basic
+    front: "SGD — expand the acronym and describe one step."
+    back: >
+      Stochastic Gradient Descent: p ← p − lr · ∇loss(p), with the gradient
+      computed on a random minibatch rather than the full dataset
+      ("stochastic"). lr is the learning rate / step size.
+    tags: [ml, acronym]
+
+  - id: ml-acronym-mlp-01
+    type: basic
+    front: "MLP — expand the acronym and describe the architecture."
+    back: >
+      Multi-Layer Perceptron: the plain feed-forward neural network — a
+      stack of layers, each computing x @ W + b followed by a nonlinearity
+      (e.g. ReLU), with no nonlinearity after the final layer's output.
+    tags: [ml, acronym]
+
+  - id: ml-acronym-relu-01
+    type: basic
+    front: "ReLU — expand the acronym and give the formula."
+    back: >
+      Rectified Linear Unit: relu(x) = max(0, x). The default nonlinearity
+      between neural-net layers; without a nonlinearity, stacked linear
+      layers collapse into one linear layer.
+    tags: [ml, acronym]
+
+  - id: ml-acronym-ce-01
+    type: basic
+    front: What is cross-entropy (CE) loss, in one sentence?
+    back: >
+      The classification loss: −log(probability the model assigned to the
+      correct class). Confidently right → near 0; confidently wrong → huge.
+      Computed from logits via log_softmax for numerical stability.
+    tags: [ml, acronym]
+
+  - id: ml-acronym-prng-01
+    type: basic
+    front: "PRNG — expand the acronym. What is a PRNG key in JAX?"
+    back: >
+      Pseudo-Random Number Generator — deterministic algorithm producing
+      random-looking numbers from a seed. A JAX key is an explicit value
+      encoding generator state, passed to every random function.
+    tags: [ml, acronym, jax]
+
+  - id: ml-acronym-jit-01
+    type: basic
+    front: "JIT — expand the acronym. What does jax.jit do?"
+    back: >
+      Just-In-Time compilation: the function is compiled at first call
+      (trace with abstract values → optimized XLA program), then cached and
+      reused for every later call with the same shapes/dtypes.
+    tags: [ml, acronym, jax]
+
+  - id: ml-acronym-rnn-01
+    type: basic
+    front: "RNN — expand the acronym and give the core equation."
+    back: >
+      Recurrent Neural Network: processes a sequence by carrying a hidden
+      state, h_t = f(W_h h_{t−1} + W_x x_t) — same weights applied at every
+      timestep.
+    tags: [ml, acronym]
+
+  - id: ml-acronym-ewma-01
+    type: basic
+    front: "EWMA — expand the acronym and give the update rule."
+    back: >
+      Exponentially Weighted Moving Average: s_t = α·x_t + (1−α)·s_{t−1}.
+      A smoothed running average where old observations decay
+      exponentially; α controls how fast it forgets.
+    tags: [ml, acronym]
+
+  - id: ml-acronym-xla-01
+    type: basic
+    front: "XLA — expand the acronym. What is it to JAX?"
+    back: >
+      Accelerated Linear Algebra: the compiler JAX lowers jitted functions
+      to. It fuses operations and generates optimized code per backend
+      (CPU/GPU/TPU) — the reason jit makes things fast.
+    tags: [ml, acronym, jax]
