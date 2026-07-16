@@ -120,14 +120,14 @@ def push() -> None:
             updated += 1
 
     # Orphans: repo-managed notes (they carry an AD-ID) no longer in the YAML.
-    top_decks = {name.split("::")[0] for name, _ in decks}
+    # Scan the whole collection, not just decks present in the YAML — otherwise
+    # deleting an entire deck file hides its orphans.
     orphans = []
-    for top in sorted(top_decks):
-        for nid in invoke("findNotes", query=f'deck:"{top}" "AD-ID:_*"'):
-            (info,) = invoke("notesInfo", notes=[nid])
-            aid = info["fields"].get("AD-ID", {}).get("value", "")
-            if aid and aid not in yaml_ids:
-                orphans.append(aid)
+    for nid in invoke("findNotes", query='"AD-ID:_*"'):
+        (info,) = invoke("notesInfo", notes=[nid])
+        aid = info["fields"].get("AD-ID", {}).get("value", "")
+        if aid and aid not in yaml_ids:
+            orphans.append(aid)
 
     print(f"pushed: {added} added, {updated} updated, {unchanged} unchanged")
     if orphans:
