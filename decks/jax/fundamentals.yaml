@@ -280,3 +280,32 @@ cards:
       to. It fuses operations and generates optimized code per backend
       (CPU/GPU/TPU) — the reason jit makes things fast.
     tags: [ml, acronym, jax]
+
+  - id: ml-l2norm-01
+    type: basic
+    front: "L2 norm — give the formula. Is there a mean in it?"
+    back: >
+      ‖v‖₂ = sqrt(v₁² + v₂² + ... + vₙ²). No mean — it's a LENGTH (Euclidean
+      distance from the origin; Pythagoras generalized). Leaves [3] and [4]
+      → sqrt(9+16) = 5. Grows with more/bigger elements.
+    tags: [ml, math]
+
+  - id: ml-l2norm-02
+    type: basic
+    front: "Distinguish: L2 norm vs MSE vs RMS (square-and-aggregate family)."
+    back: >
+      L2 norm = sqrt(Σv²) — a total length, no averaging.
+      MSE = mean((pred−y)²) — a loss over errors, averaged to be
+      dataset-size independent.
+      RMS = sqrt(mean(v²)) — an average magnitude.
+      Gradient clipping uses the L2 norm: "how big is the whole update
+      vector?" — a mean would hide one exploding layer among calm ones.
+    tags: [ml, math]
+
+  - id: ml-l2norm-03
+    type: code
+    front: Compute the global L2 norm of a JAX pytree (leaves have different shapes, so no concatenation).
+    back: |
+      # sum of squares is additive across leaves; one sqrt at the end
+      jnp.sqrt(sum(jnp.sum(leaf ** 2) for leaf in jax.tree.leaves(tree)))
+    tags: [ml, jax]
