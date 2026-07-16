@@ -1,0 +1,32 @@
+deck: ML Math::Linear Algebra
+cards:
+  - id: matmul-order-01
+    type: basic
+    front: |
+      A is 2×3 and B is 3×4. Which of AB and BA is defined, and what is the
+      shape of the result?
+    back: |
+      Only AB is defined: the inner dimensions must match, (2×3)(3×4) → 2×4.
+      BA is undefined because (3×4)(2×3) has inner dimensions 4 ≠ 2.
+      Rule: (m×n)(n×k) → m×k — inner dims cancel, outer dims remain.
+    tags: [matmul, linear-algebra]
+  - id: matmul-order-02
+    type: basic
+    front: |
+      Compute AB:
+      A = [[1, 2], [3, 4]], B = [[5, 6], [7, 8]]
+    back: |
+      AB = [[19, 22], [43, 50]]
+      Each entry is (row of A) · (column of B), e.g.
+      top-left = 1·5 + 2·7 = 19, bottom-right = 3·6 + 4·8 = 50.
+    tags: [matmul, linear-algebra]
+  - id: matmul-order-03
+    type: basic
+    front: |
+      A = [[1, 2], [3, 4]], P = [[0, 1], [1, 0]] (the swap permutation).
+      Compute AP and PA. What does the difference show?
+    back: |
+      AP = [[2, 1], [4, 3]] — swaps the COLUMNS of A (P on the right acts on columns).
+      PA = [[3, 4], [1, 2]] — swaps the ROWS of A (P on the left acts on rows).
+      Matmul is not commutative: order determines whether you transform rows or columns.
+    tags: [matmul, linear-algebra]
