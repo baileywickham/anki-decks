@@ -1,4 +1,4 @@
-deck: ML::LLM
+deck: ML
 cards:
   - id: llm-repr-01
     type: basic
