@@ -1,0 +1,92 @@
+deck: LLM::Fundamentals
+cards:
+  - id: llm-repr-01
+    type: basic
+    front: "Name the three number representations in a classifier/LM head and the ops that connect them."
+    back: >
+      Logits (any reals, pre-softmax scores) → softmax → probs (0..1, sum
+      to 1) → log → log-probs (≤ 0). Shortcut: log_softmax goes logits →
+      log-probs in one fused step. exp takes log-probs back to probs;
+      logits are not recoverable (softmax is shift-invariant).
+    tags: [llm, ml]
+
+  - id: llm-repr-02
+    type: basic
+    front: "Is log_softmax(x) the same as log(softmax(x))? Why does the fused version exist?"
+    back: >
+      Mathematically identical. The fused version never materializes tiny
+      probabilities: softmax can round to 0.0 in float32 and log(0) = -inf.
+      log_softmax(x) = x − logsumexp(x), stable for any logit spread. Rule:
+      on the way to a loss, never leave log-space.
+    tags: [llm, ml]
+
+  - id: llm-repr-03
+    type: basic
+    front: "Where does the minus sign in −log p live, and why?"
+    back: >
+      Only at the loss. log p of a probability is ≤ 0; maximizing log-
+      likelihood ≡ minimizing −log p, and DL tooling minimizes. Log-probs
+      themselves stay negative (healthy); a loss is ≥ 0. A positive
+      "log-prob" or negative NLL means a sign got lost.
+    tags: [llm, ml]
+
+  - id: llm-repr-04
+    type: basic
+    front: "Why compute sequence likelihood in log-space at all? (3 reasons)"
+    back: >
+      1) Products become sums: P(seq) = Πpᵢ underflows to 0.0 for long
+      sequences; Σ log pᵢ doesn't. 2) Stability of intermediates (see
+      log_softmax). 3) Surprise is additive: −log p is the information-
+      theoretic surprise, in nats (ln) or bits (log₂).
+    tags: [llm, ml]
+
+  - id: llm-sample-01
+    type: basic
+    front: "jax.random.categorical(key, x) — what does it expect x to be, and what silently goes wrong if you pass probabilities?"
+    back: >
+      Log-probabilities / logits. Passing probs makes it softmax them
+      AGAIN: [0, 1] becomes ~[0.27, 0.73] — probability-zero events get
+      sampled ~26% of the time, and small tests can still pass by luck.
+      Fix: jnp.log(probs); log(0) = −inf correctly means "never sample".
+    tags: [llm, jax]
+
+  - id: llm-softmax-vs-div-01
+    type: basic
+    front: "Turning numbers into a probability distribution: when softmax, when plain division?"
+    back: >
+      Softmax converts SCORES (logits — any reals, log-ish scale).
+      Row-division converts COUNTS/MASSES (already nonnegative and
+      proportional): counts / counts.sum(axis, keepdims=True). Softmaxing
+      counts exponentiates and distorts them; dividing counts is the
+      maximum-likelihood estimate.
+    tags: [llm, ml]
+
+  - id: llm-nll-01
+    type: basic
+    front: "Cross-entropy loss vs negative log-likelihood — what's the difference?"
+    back: >
+      Same number, two names: mean −log P(true next token). "NLL" is the
+      statistics name (likelihood view), "cross-entropy" the information-
+      theory name. Works for any probabilistic model — counted bigram
+      tables and trained transformers are scored identically.
+    tags: [llm, ml]
+
+  - id: llm-nll-02
+    type: basic
+    front: "Char-level LM loss ruler: what do ~log V, a bigram's NLL, and anything below it mean?"
+    back: >
+      log V ≈ uniform guessing (knows nothing). Counted bigram NLL ≈ the
+      FLOOR for 1-char context (counting is the ML estimate — no same-
+      context model beats it). Dropping below the bigram line structurally
+      requires longer context — that's the moment attention earns its keep.
+    tags: [llm, ml]
+
+  - id: llm-nll-03
+    type: basic
+    front: "Perplexity — definition and intuition?"
+    back: >
+      perplexity = e^NLL (NLL in nats). "As confused as choosing uniformly
+      among k options": uniform over V has perplexity exactly V; NLL 2.4 →
+      ≈ 11 effective choices per character. Lower is better; 1 is a
+      perfect model.
+    tags: [llm, ml]
