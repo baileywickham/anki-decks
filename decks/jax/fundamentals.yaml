@@ -1,4 +1,4 @@
-deck: JAX::Fundamentals
+deck: ML::JAX
 cards:
   - id: jax-immutable-01
     type: basic

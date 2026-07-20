@@ -1,4 +1,4 @@
-deck: LLM::Fundamentals
+deck: ML::LLM
 cards:
   - id: llm-repr-01
     type: basic
