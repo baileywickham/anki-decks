@@ -27,14 +27,6 @@ cards:
       (n, d) = n samples, one per row, each with d features.
     tags: [jax, numpy]
 
-  - id: jax-broadcast-01
-    type: cloze
-    text: >
-      NumPy/JAX broadcasting aligns shapes starting from the
-      {{c1::trailing (rightmost)}} dimensions, and a dimension of size
-      {{c2::1}} is stretched to match the other array.
-    tags: [jax, numpy]
-
   - id: jax-keepdims-01
     type: basic
     front: >
@@ -99,17 +91,6 @@ cards:
       top-left = 1·5 + 2·7 = 19, bottom-right = 3·6 + 4·8 = 50.
     tags: [matmul, linear-algebra]
 
-  - id: jax-matmul-05
-    type: basic
-    front: |
-      A = [[1, 2], [3, 4]], P = [[0, 1], [1, 0]] (the swap permutation).
-      Compute AP and PA. What does the difference show?
-    back: |
-      AP = [[2, 1], [4, 3]] — swaps the COLUMNS of A (P on the right acts on columns).
-      PA = [[3, 4], [1, 2]] — swaps the ROWS of A (P on the left acts on rows).
-      Matmul is not commutative: order determines whether you transform rows or columns.
-    tags: [matmul, linear-algebra]
-
   - id: jax-prng-01
     type: basic
     front: Why must you never use the same JAX PRNG key twice?
@@ -118,13 +99,6 @@ cards:
       function ⇒ identical output. Reuse silently gives duplicate "random"
       numbers (e.g. two layers initialized with identical weights). Split
       the key and use each subkey once.
-    tags: [jax]
-
-  - id: jax-prng-02
-    type: code
-    front: From one JAX PRNG key, get one independent key per layer for n layers.
-    back: |
-      keys = jax.random.split(key, n)   # n new keys; iterate or index
     tags: [jax]
 
   - id: jax-prng-03
@@ -171,16 +145,6 @@ cards:
       static argument). The cache never evicts, so previously seen
       signatures keep hitting their compiled version.
     tags: [jax]
-
-  - id: py-nonlocal-01
-    type: basic
-    front: An inner function does count += 1 on a variable from the enclosing function and raises UnboundLocalError. Why, and what are the two fixes?
-    back: >
-      Assignment makes Python treat count as a new local, which is read
-      before it's bound. Declare `nonlocal count` (enclosing scope) or
-      `global count` (module scope) — or mutate a container instead,
-      e.g. count[0] += 1.
-    tags: [python]
 
   - id: ml-acronym-mse-01
     type: basic
@@ -236,24 +200,6 @@ cards:
       Computed from logits via log_softmax for numerical stability.
     tags: [ml, acronym]
 
-  - id: ml-acronym-prng-01
-    type: basic
-    front: "PRNG — expand the acronym. What is a PRNG key in JAX?"
-    back: >
-      Pseudo-Random Number Generator — deterministic algorithm producing
-      random-looking numbers from a seed. A JAX key is an explicit value
-      encoding generator state, passed to every random function.
-    tags: [ml, acronym, jax]
-
-  - id: ml-acronym-jit-01
-    type: basic
-    front: "JIT — expand the acronym. What does jax.jit do?"
-    back: >
-      Just-In-Time compilation: the function is compiled at first call
-      (trace with abstract values → optimized XLA program), then cached and
-      reused for every later call with the same shapes/dtypes.
-    tags: [ml, acronym, jax]
-
   - id: ml-acronym-rnn-01
     type: basic
     front: "RNN — expand the acronym and give the core equation."
@@ -302,10 +248,3 @@ cards:
       vector?" — a mean would hide one exploding layer among calm ones.
     tags: [ml, math]
 
-  - id: ml-l2norm-03
-    type: code
-    front: Compute the global L2 norm of a JAX pytree (leaves have different shapes, so no concatenation).
-    back: |
-      # sum of squares is additive across leaves; one sqrt at the end
-      jnp.sqrt(sum(jnp.sum(leaf ** 2) for leaf in jax.tree.leaves(tree)))
-    tags: [ml, jax]
