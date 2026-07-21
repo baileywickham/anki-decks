@@ -219,3 +219,14 @@ cards:
       with columns, consuming the inner dimension). Classic silent bug:
       q * k where you meant the all-pairs table q @ k.T.
     tags: [llm, ml, matmul]
+
+  - id: llm-shapes-01
+    type: basic
+    front: "Transformer shape vocabulary: what do T, d, dh, H, B, V, and block_size each mean?"
+    back: >
+      T = current sequence length (tokens actually present, ≤ block_size);
+      block_size = the maximum T (context window; also pos_emb's row
+      count); d = residual stream / model width; H = number of heads;
+      dh = d/H per-head width; B = batch (independent sequences); V =
+      vocab size. Canonical activation: (B, H, T, dh); logits: (T, V).
+    tags: [llm, ml]
