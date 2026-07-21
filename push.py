@@ -4,13 +4,17 @@
 # ///
 """Push YAML card sources into a running Anki via AnkiConnect, then sync.
 
-Usage: uv run push.py
+Usage: uv run push.py [--prune [--yes]]
 
 Upserts every card in decks/**/*.yaml into the live collection, keyed by the
-hidden AD-ID field ("<deck name>/<card id>"). Never deletes: notes that exist
-in repo-managed decks but not in the YAML are reported for manual review.
-If Anki isn't running (or AnkiConnect isn't installed), falls back to
-building .apkg files and printing import instructions.
+hidden AD-ID field (the bare card id — deck-independent, so renaming a deck
+in YAML MOVES its notes, review history intact). Legacy "<deck>/<id>" AD-IDs
+are migrated in place on first contact.
+
+Deletion: notes that carry an AD-ID but are no longer in the YAML are
+reported as orphans and never auto-deleted. `--prune` deletes them after an
+interactive confirmation; `--prune --yes` skips the prompt (for
+non-interactive shells — pass it only with Bailey's explicit approval).
 """
 
 import json
@@ -80,20 +84,27 @@ def ensure_models() -> None:
                 print(f"added field {f!r} to model {model.name!r}")
 
 
-def push() -> None:
+def push(prune: bool = False, assume_yes: bool = False) -> None:
     decks = list(build.iter_decks())  # exits on duplicate ids
     ensure_models()
 
-    added = updated = unchanged = 0
+    added = updated = unchanged = moved = migrated = 0
     yaml_ids = set()
     for deck_name, cards in decks:
         invoke("createDeck", deck=deck_name)
+        in_deck = set(invoke("findNotes", query=f'deck:"{deck_name}"'))
         for card in cards:
             model, fields = build.render_fields(deck_name, card)
             aid = fields["AD-ID"]
             yaml_ids.add(aid)
             tags = card.get("tags", [])
             note_ids = invoke("findNotes", query=f'"AD-ID:{aid}"')
+            if not note_ids:
+                # Legacy "<deck>/<id>" AD-IDs from the deck-coupled era: adopt
+                # the note and rewrite its AD-ID (the update below does it).
+                note_ids = invoke("findNotes", query=f'"AD-ID:*/{aid}"')
+                if note_ids:
+                    migrated += 1
             if not note_ids:
                 nid = invoke(
                     "addNote",
@@ -111,13 +122,18 @@ def push() -> None:
                 continue
             if len(note_ids) > 1:
                 sys.exit(f"error: multiple notes claim AD-ID {aid!r}: {note_ids} — fix in Anki first")
-            (info,) = invoke("notesInfo", notes=note_ids)
+            nid = note_ids[0]
+            (info,) = invoke("notesInfo", notes=[nid])
             current = {name: v["value"] for name, v in info["fields"].items()}
             if current == fields and sorted(info["tags"]) == sorted(tags):
                 unchanged += 1
-                continue
-            invoke("updateNote", note={"id": note_ids[0], "fields": fields, "tags": tags})
-            updated += 1
+            else:
+                invoke("updateNote", note={"id": nid, "fields": fields, "tags": tags})
+                updated += 1
+            if nid not in in_deck:
+                # deck: changed in YAML (or legacy note) — move, don't duplicate.
+                invoke("changeDeck", cards=invoke("findCards", query=f"nid:{nid}"), deck=deck_name)
+                moved += 1
 
     # Orphans: repo-managed notes (they carry an AD-ID) no longer in the YAML.
     # Scan the whole collection, not just decks present in the YAML — otherwise
@@ -127,14 +143,34 @@ def push() -> None:
         (info,) = invoke("notesInfo", notes=[nid])
         aid = info["fields"].get("AD-ID", {}).get("value", "")
         if aid and aid not in yaml_ids:
-            orphans.append(aid)
+            orphans.append((aid, nid))
 
-    print(f"pushed: {added} added, {updated} updated, {unchanged} unchanged")
+    summary = f"pushed: {added} added, {updated} updated, {unchanged} unchanged"
+    if moved:
+        summary += f", {moved} moved to a renamed deck"
+    if migrated:
+        summary += f", {migrated} legacy ids migrated"
+    print(summary)
+
     if orphans:
         print("\nWARNING: notes in Anki but no longer in YAML (never auto-deleted):")
-        for aid in orphans:
+        for aid, _ in orphans:
             print(f"  - {aid}")
-        print("Delete them in Anki (Browse > search the AD-ID) if removal was intended.")
+        if prune:
+            if assume_yes:
+                ok = True
+            else:
+                try:
+                    ok = input(f"\n--prune: permanently delete these {len(orphans)} notes? [y/N] ").strip().lower() == "y"
+                except EOFError:
+                    ok = False
+            if ok:
+                invoke("deleteNotes", notes=[nid for _, nid in orphans])
+                print(f"pruned {len(orphans)} notes. Now-empty decks can be removed in Anki's deck list.")
+            else:
+                print("prune declined; nothing deleted.")
+        else:
+            print('To remove: `uv run push.py --prune`, or in Anki Browse search "AD-ID:<id>".')
 
     try:
         invoke("sync")
@@ -151,7 +187,7 @@ def main() -> None:
             "Do NOT import dist/*.apkg into a collection push.py has already managed --\n"
             "GUIDs won't match and every note would be duplicated."
         )
-    push()
+    push(prune="--prune" in sys.argv, assume_yes="--yes" in sys.argv)
 
 
 if __name__ == "__main__":

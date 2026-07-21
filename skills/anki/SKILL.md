@@ -1,6 +1,6 @@
 ---
 name: anki
-description: Use when asked to create, add, edit, or remove Anki flashcards or decks — "make me cards about X", "add this to my Anki", or any spaced-repetition/memorization request.
+description: Use when asked to create, add, edit, remove, or reorganize Anki flashcards or decks — "make me cards about X", "add this to my Anki", "merge/rename my decks", or any spaced-repetition/memorization request.
 ---
 
 # Anki Cards
@@ -16,19 +16,21 @@ directly via AnkiConnect, AppleScript, or the Anki UI.
 1. `cd ~/workspace/anki-decks && git pull`
    (if the directory is missing: `git clone git@github.com:baileywickham/anki-decks.git ~/workspace/anki-decks`)
 2. Add or edit YAML under `decks/` (format below).
-3. `uv run push.py` — launches Anki if needed, upserts changed cards, triggers
-   AnkiWeb sync. Read its output: report the added/updated counts and relay any
-   orphan warnings to Bailey verbatim.
+3. `uv run push.py` — launches Anki if needed, upserts changed cards, moves
+   notes whose `deck:` changed, triggers AnkiWeb sync. Read its output:
+   report the added/updated/moved counts and relay any orphan warnings to
+   Bailey verbatim.
 4. `git add -A && git commit && git push` — git history is the audit trail of
    every card change across sessions. A push into Anki without a git commit is
    an unfinished job, whether or not Bailey asked for a commit.
 
 ## Card format
 
-One YAML file per subdeck:
+One YAML file per topic. Several files may share one `deck:` name — files are
+repo organization, decks are Anki organization.
 
 ```yaml
-deck: Interview Prep::LLM Serving   # `::` creates subdecks
+deck: ML                # `::` creates subdecks; prefer ONE deck + tags
 cards:
   - id: kv-cache-01     # permanent kebab-case slug — never change once pushed
     type: basic         # basic | cloze | code
@@ -42,10 +44,19 @@ Types: `basic` (front/back) · `cloze` (`text` with `{{c1::…}}`, optional
 
 ## Invariants
 
-- Never change a card's `id` or a file's `deck:` name once pushed — Anki sees
-  a new note and duplicates it.
-- Never delete notes from Anki. Removing a card from YAML only makes push.py
-  flag an orphan; deletion is Bailey's call, in the Anki UI.
+- Never change a card's `id` once pushed — it is the note's permanent
+  identity (the hidden AD-ID field); a changed id reads as a new note and
+  duplicates it. Ids must be unique across the whole repo.
+- Renaming or merging decks IS safe: edit the `deck:` line and push — notes
+  move with review history intact (push.py reports them as "moved"). Deck
+  names are organization, not identity.
+- Prefer one deck plus tags over deck hierarchies: filtered decks can study
+  any tag subset, and tags are free to change at any time.
+- Deleting cards: removing them from YAML only orphans the notes — push.py
+  warns and never auto-deletes. When Bailey explicitly asks for removal, run
+  `uv run push.py --prune` and confirm at its prompt (append `--yes` only in
+  non-interactive shells, and only after his approval in chat). Never prune
+  unprompted; orphan warnings go to Bailey first.
 - Only touch decks defined in this repo. Decks Bailey made by hand in Anki are
   off limits.
 - Never import `dist/*.apkg` into his main collection — push.py manages it and
@@ -58,4 +69,4 @@ Types: `basic` (front/back) · `cloze` (`text` with `{{c1::…}}`, optional
   Python idioms, `basic` for definitions and "why" questions.
 - Grep existing YAML for the topic first; edit near-duplicates instead of
   adding parallel cards.
-- ids: topic slug + counter (`prefill-decode-01`), unique within the deck.
+- ids: topic slug + counter (`prefill-decode-01`), unique across the repo.

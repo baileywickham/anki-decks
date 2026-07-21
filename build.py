@@ -7,10 +7,11 @@
 Usage: uv run build.py
 
 One .apkg is written to dist/ per top-level Anki deck (the part of the
-`deck:` name before the first `::`). Note GUIDs derive from (deck name,
-card id), so re-importing an updated .apkg edits notes in place without
-resetting review scheduling. Never rename a deck or change a card id once
-reviews exist — that duplicates the note on import.
+`deck:` name before the first `::`). Note GUIDs derive from the card id
+alone, so re-importing an updated .apkg edits notes in place without
+resetting review scheduling, and deck renames move notes rather than
+duplicating them. Never change a card id once reviews exist — that
+duplicates the note on import. Card ids must be unique across the repo.
 """
 
 import hashlib
@@ -51,8 +52,9 @@ code { font-family: "SF Mono", Menlo, monospace; font-size: 16px; }
 .cloze { font-weight: bold; color: #0b6bcb; }
 """
 
-# AD-ID holds "<deck name>/<card id>" so push.py can find repo-managed notes
-# in a live collection. It is never rendered on cards.
+# AD-ID holds the bare card id so push.py can find repo-managed notes in a
+# live collection. Deck-independent on purpose: renaming a deck in YAML moves
+# notes instead of duplicating them. It is never rendered on cards.
 BASIC_MODEL = genanki.Model(
     BASIC_MODEL_ID,
     "AD Basic",
@@ -107,8 +109,9 @@ def code_block(code: str) -> str:
 MODELS = {"basic": BASIC_MODEL, "cloze": CLOZE_MODEL, "code": CODE_MODEL}
 
 
-def ad_id(deck_name: str, card: dict) -> str:
-    return f"{deck_name}/{card['id']}"
+def ad_id(card: dict) -> str:
+    """Stable note identity: the bare card id, independent of deck name."""
+    return card["id"]
 
 
 def render_fields(deck_name: str, card: dict) -> tuple[genanki.Model, dict[str, str]]:
@@ -122,17 +125,20 @@ def render_fields(deck_name: str, card: dict) -> tuple[genanki.Model, dict[str, 
         fields = {"Front": as_html(card["front"]), "Back": code_block(card["back"])}
     else:
         raise ValueError(f"{card['id']}: unknown card type {ctype!r}")
-    fields["AD-ID"] = ad_id(deck_name, card)
+    fields["AD-ID"] = ad_id(card)
     return MODELS[ctype], fields
 
 
 def iter_decks():
-    """Yield (deck_name, cards) per YAML file, exiting on duplicate card ids."""
+    """Yield (deck_name, cards) per YAML file, exiting on duplicate card ids.
+
+    Ids must be unique across the whole repo (not just per deck) — they are
+    the notes' permanent identity."""
     seen: dict[str, Path] = {}
     for path in sorted(DECKS_DIR.rglob("*.yaml")):
         doc = yaml.safe_load(path.read_text())
         for card in doc.get("cards", []):
-            key = ad_id(doc["deck"], card)
+            key = ad_id(card)
             if key in seen:
                 sys.exit(f"error: duplicate card id: {key} in {path} and {seen[key]}")
             seen[key] = path
@@ -146,7 +152,7 @@ def make_note(deck_name: str, card: dict) -> genanki.Note:
         fields=[fields[f["name"]] for f in model.fields],
         tags=card.get("tags", []),
     )
-    note.guid = genanki.guid_for(deck_name, card["id"])
+    note.guid = genanki.guid_for(card["id"])
     return note
 
 
