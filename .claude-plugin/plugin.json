@@ -1,7 +1,7 @@
 {
   "name": "anki",
   "description": "Create and edit Anki flashcards as version-controlled YAML, pushed into live Anki via AnkiConnect and synced to your devices through AnkiWeb.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Bailey Wickham"
   }

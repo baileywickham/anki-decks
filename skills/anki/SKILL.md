@@ -5,7 +5,7 @@ description: Use when asked to create, add, edit, remove, or reorganize Anki fla
 
 # Anki Cards
 
-Bailey's Anki cards live as YAML in the private repo at `~/workspace/anki-decks`
+Bailey's Anki cards live as YAML in the public repo at `~/workspace/anki-decks`
 (github.com/baileywickham/anki-decks). The YAML is the source of truth;
 `push.py` upserts it into live desktop Anki via AnkiConnect and syncs to his
 phone via AnkiWeb. Always go through the repo — never add or edit notes
