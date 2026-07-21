@@ -90,3 +90,66 @@ cards:
       ≈ 11 effective choices per character. Lower is better; 1 is a
       perfect model.
     tags: [llm, ml]
+
+  - id: llm-allpairs-01
+    type: basic
+    front: "scores[i, j] = q[i] · k[j] for ALL pairs of rows — what single op computes this, and why does it work?"
+    back: >
+      q @ k.T. Matmul definition: (A@B)[i,j] = row i of A · column j of B,
+      and column j of k.T IS row j of k. Shapes: (T,dk) @ (dk,T) → (T,T) —
+      the feature dim dk is consumed by the dots, both T's survive as the
+      two free indices. (q * k is the classic wrong answer: elementwise,
+      only pairs matching indices i with i.)
+    tags: [llm, ml, matmul]
+
+  - id: llm-allpairs-02
+    type: basic
+    front: "How do you RECOGNIZE an X @ Y.T (all-pairs) situation from a formula?"
+    back: >
+      Count free indices: out[i, j] with i over rows of X, j over rows of Y
+      (two free indices → a table), and the feature axis summed away by a
+      dot product (appears in both inputs, absent from output → consumed).
+      Same counting as "one vmap per output dim". One shared index instead
+      (out[i] = f(x[i], y[i])) → elementwise, not matmul.
+    tags: [llm, ml, matmul]
+
+  - id: llm-allpairs-03
+    type: basic
+    front: "Name three places the 'X @ Y.T = all-pairs row similarity' pattern shows up."
+    back: >
+      1) Attention scores: q @ k.T — every query against every key.
+      2) Cosine-similarity matrices (normalize rows first).
+      3) Nearest-neighbor / retrieval scoring: queries @ database.T.
+      With Y = X it's self-similarity (attention within one sequence).
+    tags: [llm, ml, matmul]
+
+  - id: llm-attn-01
+    type: basic
+    front: "Scaled dot-product attention: what are the four stages and what does each mean?"
+    back: >
+      1) scores = q @ k.T / sqrt(dk) — raw compatibility, every asker ×
+      every answerer. 2) causal mask — future scores to −inf (arrow of
+      time as a triangular matrix). 3) softmax per row — each position
+      gets a probability distribution over the past. 4) weights @ v —
+      weighted average of value vectors. One-liner: softmax(qkᵀ/√d)·v.
+    tags: [llm, ml]
+
+  - id: llm-attn-02
+    type: basic
+    front: "Why divide attention scores by sqrt(dk)?"
+    back: >
+      Dot products of dk-dim vectors grow like sqrt(dk) (variance-of-sums,
+      the He-init argument). Large scores saturate softmax into near
+      one-hot weights with vanishing gradients. Dividing keeps scores O(1)
+      at any head width.
+    tags: [llm, ml]
+
+  - id: llm-attn-03
+    type: basic
+    front: "Attention q, k, v — what role does each vector play, and why three separate projections of x?"
+    back: >
+      query = what I'm looking for; key = what I advertise; value = what I
+      hand over if selected. Three learned matrices (x@Wq, x@Wk, x@Wv) let
+      a position seek things unlike itself — matching x against x directly
+      would conflate seeking, advertising, and delivering.
+    tags: [llm, ml]
