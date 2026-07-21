@@ -196,3 +196,26 @@ cards:
       of an attention table, one current-char of a bigram table. Name the
       row's meaning first and the column's follows.
     tags: [llm, ml, rowcol]
+
+  - id: llm-xw-conv-01
+    type: basic
+    front: "Linear layer: x @ W or W @ x? And why is getting it wrong SILENT for attention projections?"
+    back: >
+      DL code convention: x @ W — data/examples are rows, weights multiply
+      from the right ((n,d) @ (d,k), or (d,) @ (d,d)). Math papers write
+      W_q x (column-vector convention); mentally transpose when porting.
+      Danger: for square (d,d) weights both orders type-check and return
+      (d,) — but x @ W == W.T @ x ≠ W @ x unless W is symmetric. Wrong
+      order = silently transposed model. (Rectangular weights at least
+      shape-error.)
+    tags: [llm, ml, matmul, rowcol]
+
+  - id: llm-xw-conv-02
+    type: basic
+    front: "In code, what's the difference between W * x and W @ x?"
+    back: >
+      * is ELEMENTWISE multiply (pairs entry [i,j] with entry [i,j] —
+      broadcasting rules apply); @ is matrix multiplication (dots rows
+      with columns, consuming the inner dimension). Classic silent bug:
+      q * k where you meant the all-pairs table q @ k.T.
+    tags: [llm, ml, matmul]
