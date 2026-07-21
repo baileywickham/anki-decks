@@ -241,3 +241,15 @@ cards:
       # batched (B, T, V): reshape to (B*T, V) and labels to (B*T,) first.
       # Shape funnel: (n, V) -> (n,) -> ()
     tags: [llm, jax, ml]
+
+  - id: llm-vmap-inaxes-01
+    type: basic
+    front: "The in_axes drill, in one rule — and when can you skip writing it?"
+    back: >
+      Per argument: "do I iterate over this?" → axis number (usually 0);
+      "is it handed whole to every call?" → None. Shared things: params
+      of one model, config ints (n_heads — a bare int CAN'T be mapped),
+      lookup tables. Skip in_axes only when every argument is per-element
+      (pure data functions) — the default is all-0. Any function taking
+      params first almost always needs (None, 0, ...).
+    tags: [llm, jax]
