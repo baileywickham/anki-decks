@@ -253,3 +253,15 @@ cards:
       (pure data functions) — the default is all-0. Any function taking
       params first almost always needs (None, 0, ...).
     tags: [llm, jax]
+
+  - id: llm-arange-gather-01
+    type: basic
+    front: "What is m[jnp.arange(n), labels] FOR, and what do the two wrong neighbors compute?"
+    back: >
+      Per-row element pick: from each row i, take column labels[i] → (n,).
+      THE idiom for "each prediction's own-label score" in CE loss. Wrong
+      neighbors: m[labels] gathers whole ROWS (n, V); m[:, labels] is a
+      CROSS product, all rows × all label columns (n, n) — your target is
+      its diagonal. Rule: two arrays zip into (row, col) pairs; one array
+      or slice+array don't. Alternative spelling: take_along_axis.
+    tags: [llm, jax, rowcol]
