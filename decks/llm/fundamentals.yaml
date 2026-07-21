@@ -230,3 +230,14 @@ cards:
       dh = d/H per-head width; B = batch (independent sequences); V =
       vocab size. Canonical activation: (B, H, T, dh); logits: (T, V).
     tags: [llm, ml]
+
+  - id: llm-ce-impl-01
+    type: code
+    front: "Implement mean cross-entropy from logits (n, V) and int labels (n,) in JAX — the five-step idiom."
+    back: |
+      logp = jax.nn.log_softmax(logits)          # (n, V), rows normalized
+      picked = logp[jnp.arange(n), labels]       # paired gather: own-label logp
+      return -jnp.mean(picked)                   # negate + reduce -> scalar
+      # batched (B, T, V): reshape to (B*T, V) and labels to (B*T,) first.
+      # Shape funnel: (n, V) -> (n,) -> ()
+    tags: [llm, jax, ml]
