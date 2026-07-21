@@ -153,3 +153,46 @@ cards:
       a position seek things unlike itself — matching x against x directly
       would conflate seeking, advertising, and delivering.
     tags: [llm, ml]
+
+  - id: llm-attn-rowcol-01
+    type: basic
+    front: "In the (T, T) attention score/weight table, what do the row index and column index each mean?"
+    back: >
+      Row i = the position ASKING (query owner); column j = the position
+      being ASKED about (key owner). weights[i, j] = how much position i
+      attends to position j. Reading habits: a ROW is one position's view
+      of everyone; a COLUMN is everyone's interest in one position.
+    tags: [llm, ml, rowcol]
+
+  - id: llm-attn-rowcol-02
+    type: basic
+    front: "Re-derive in two sentences: is the causal attention mask lower- or upper-triangular?"
+    back: >
+      Row = asker; an asker may see its past, columns j ≤ i — that region
+      (diagonal included: you may see yourself) is the LOWER triangle. The
+      blocked future is the upper triangle — so a keep-mask (True=allowed)
+      is tril, while an additive −inf kill-mask marks the complement: triu
+      with k=1. Same wall, two polarities; derive, don't memorize.
+    tags: [llm, ml, rowcol]
+
+  - id: llm-attn-rowcol-03
+    type: basic
+    front: "Attention weights: softmax along which axis of the (T, T) table, and why is the other axis wrong?"
+    back: >
+      Along rows (axis=-1): each asker's weights over the past must form
+      one probability distribution, so each ROW sums to 1. Column-wise
+      softmax would instead normalize "everyone's interest in position j"
+      — a popularity contest, not a mixing recipe; weights @ v would no
+      longer be a weighted average per position.
+    tags: [llm, ml, rowcol]
+
+  - id: llm-attn-rowcol-04
+    type: basic
+    front: "General row/column tiebreaker when a 2-D table confuses you — what's the drill?"
+    back: >
+      Ask "what does ONE ROW mean?" — the first index picks a row, m[i] is
+      row i, axis 0 runs down rows. In ML tables the row is almost always
+      the per-example unit: one sample of a data matrix (n, d), one asker
+      of an attention table, one current-char of a bigram table. Name the
+      row's meaning first and the column's follows.
+    tags: [llm, ml, rowcol]
