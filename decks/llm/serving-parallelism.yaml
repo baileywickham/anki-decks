@@ -1,0 +1,97 @@
+deck: ML
+cards:
+  - id: parallelism-tp-01
+    type: basic
+    front: "Tensor parallelism (TP): what gets split across GPUs, and what is the cost?"
+    back: >
+      Individual weight matrices (and attention heads) are sliced across
+      GPUs; each GPU computes its slice and an all-reduce combines partial
+      results. A collective on EVERY layer, so it wants fast interconnect
+      (NVLink) — used within a node. Default way to fit a model that
+      doesn't fit on one GPU. SGLang: --tp-size.
+    tags: [llm, serving, parallelism]
+
+  - id: parallelism-pp-01
+    type: basic
+    front: "Pipeline parallelism (PP): what gets split, and what is its main inefficiency?"
+    back: >
+      The model is split by LAYERS into stages (GPU 0 = layers 0–19,
+      GPU 1 = 20–39…); only activations cross stage boundaries, so it
+      tolerates slow links (across nodes). Inefficiency: the pipeline
+      BUBBLE — a stage idles while others work, so you need several
+      micro-batches in flight. SGLang: --pp-size.
+    tags: [llm, serving, parallelism]
+
+  - id: parallelism-dp-01
+    type: basic
+    front: "Data parallelism (DP) in serving: what is replicated, and what does it cost?"
+    back: >
+      The whole model is replicated; requests are split across replicas.
+      No per-layer communication → near-linear throughput scaling. Cost:
+      a full model copy of memory per replica. SGLang: --dp-size.
+    tags: [llm, serving, parallelism]
+
+  - id: parallelism-dp-attn-01
+    type: basic
+    front: "What is 'DP attention' (SGLang --enable-dp-attention) and when is it worth it?"
+    back: >
+      Replicate only the attention layers per data-parallel rank while
+      keeping MoE/expert layers shared (EP/TP) across all ranks. Worth it
+      when attention weights + per-request KV are small (e.g. DeepSeek
+      MLA) so duplicating them is cheap and avoids TP's all-reduce on
+      attention.
+    tags: [llm, serving, parallelism]
+
+  - id: parallelism-ep-01
+    type: basic
+    front: "Expert parallelism (EP): what models is it for, what gets split, and what is the communication pattern?"
+    back: >
+      Mixture-of-experts models only. Different experts live on different
+      GPUs; each token is routed to its top-k experts via an ALL-TO-ALL,
+      computed there, and sent back. Spreads huge expert weights across
+      the cluster instead of slicing each expert with TP. Costs: the
+      all-to-all, and load imbalance when some experts are hot.
+      SGLang: --ep-size.
+    tags: [llm, serving, parallelism]
+
+  - id: parallelism-sp-01
+    type: basic
+    front: "Sequence / context parallelism: what is split, and where is it mainly used?"
+    back: >
+      A single sequence's TOKENS are split across GPUs (each holds a
+      chunk of the context). Mainly a training technique and for very
+      long-context prefill; less common in inference engines than TP/PP/
+      DP/EP.
+    tags: [llm, serving, parallelism]
+
+  - id: parallelism-combine-01
+    type: basic
+    front: "Rule of thumb for combining TP, PP, DP, and EP across a cluster?"
+    back: >
+      TP within a node (needs high bandwidth); PP or DP across nodes
+      (little communication); EP for MoE models. E.g. a dense 405B on two
+      nodes: TP 8 within each node, PP 2 across. DeepSeek-V3 on 8 GPUs:
+      EP across all 8 for experts with DP attention on top.
+    tags: [llm, serving, parallelism]
+
+  - id: parallelism-pd-01
+    type: basic
+    front: "Prefill-decode (PD) disaggregation: how is it different from TP/PP/DP/EP?"
+    back: >
+      It does not split weights or data — it runs PREFILL and DECODE on
+      separate GPU pools and ships the KV cache between them. Motivation:
+      prefill is compute-bound, decode is memory-bandwidth-bound, so
+      mixing them in one batch hurts both. SGLang: --disaggregation-mode.
+    tags: [llm, serving, parallelism]
+
+  - id: radix-attention-01
+    type: basic
+    front: "What is RadixAttention (SGLang)? Does it change the attention computation?"
+    back: >
+      A KV-cache REUSE strategy, not new attention math. Finished
+      requests' KV entries are kept in a radix tree keyed by token ids;
+      a new request matches its longest cached prefix and only prefills
+      the unmatched suffix. Attention kernels are unchanged — it reduces
+      how many tokens are computed, not the cost per token. LRU eviction
+      of leaves; in-use nodes are lock-pinned.
+    tags: [llm, serving, kv-cache]
