@@ -1,0 +1,197 @@
+deck: ML
+cards:
+  - id: moe-router-01
+    type: basic
+    front: "How does an MoE router pick experts for a token? (mechanism, and what it outputs)"
+    back: >
+      One tiny linear layer hidden → num_experts gives a score per expert;
+      normalize (softmax, or sigmoid in DeepSeek-V3); take the top-k
+      scores. Output: k expert ids + k weights (renormalized to sum to 1)
+      used to weighted-sum the expert outputs. Trained by backprop through
+      those weights. Cost is negligible vs the expert matmuls.
+    tags: [llm, moe]
+
+  - id: moe-router-02
+    type: basic
+    front: "DeepSeek-V3 routing: three additions on top of plain top-k?"
+    back: >
+      1) A SHARED expert every token always goes through (common knowledge,
+      lets routed experts specialize). 2) GROUPED routing: pick the best
+      groups of experts first, then top-k within them — bounds how many
+      GPUs a token fans out to. 3) A per-expert BIAS used only for
+      selection (not mixing weights), nudged to balance load instead of an
+      auxiliary loss.
+    tags: [llm, moe]
+
+  - id: moe-counts-01
+    type: basic
+    front: "DeepSeek-V3 MoE numbers: layers, experts per layer, experts per token, hidden, expert intermediate?"
+    back: >
+      61 layers (first 3 dense, 58 MoE). 256 routed experts + 1 shared per
+      MoE layer; each token routed to top-8. hidden 7168, expert
+      intermediate 2048 (dense-layer intermediate 18432). Expert weights
+      are the vast majority of the 671B params.
+    tags: [llm, moe]
+
+  - id: moe-a2a-01
+    type: basic
+    front: "Under expert parallelism, how many all-to-alls per forward pass, and per token?"
+    back: >
+      Two per MoE layer — DISPATCH (send each token's hidden state to the
+      GPUs holding its experts) and COMBINE (send expert outputs back to
+      the home GPU) — so ~116 for DeepSeek-V3's 58 MoE layers. They are per
+      FORWARD PASS, amortized over the whole batch. Batch of 1 in decode ⇒
+      every token pays all 116 alone, dominated by fixed collective latency.
+    tags: [llm, moe, parallelism]
+
+  - id: moe-a2a-02
+    type: basic
+    front: "Why does EP need high concurrency to pay off, and what two tricks address the decode case?"
+    back: >
+      All-to-all has a fixed latency floor per call; with small batches the
+      expert matmuls are tiny and communication dominates. Tricks:
+      two-batch overlap (hide one micro-batch's all-to-all behind the
+      other's compute) and DeepEP low-latency mode (RDMA directly). PD
+      disaggregation also helps by letting decode batch aggressively.
+    tags: [llm, moe, parallelism]
+
+  - id: moe-toy-loop-01
+    type: code
+    front: "Toy MoE forward after routing (ids, weights are [T,k]): run each expert on its tokens and weighted-sum back."
+    back: |
+      out = torch.zeros_like(x)
+      for e, expert in enumerate(self.experts):
+          tok_idx, slot = (ids == e).nonzero(as_tuple=True)
+          if tok_idx.numel() == 0:
+              continue
+          y = expert(x[tok_idx])
+          out.index_add_(0, tok_idx, y * weights[tok_idx, slot, None])
+      return out
+      # x[tok_idx] gather  -> dispatch all-to-all under EP
+      # index_add_ scatter -> combine all-to-all under EP
+    tags: [llm, moe, pytorch]
+
+  - id: moe-sglang-pipeline-01
+    type: basic
+    front: "SGLang MoE layer: the three calls in the model file, and what replaces the toy's per-expert loop?"
+    back: >
+      router_logits = self.gate(h); topk_output = self.topk(h, router_logits)
+      [select_experts → topk_ids, topk_weights]; out = self.experts(h,
+      topk_output) [FusedMoE]. Inside FusedMoE: dispatcher.dispatch →
+      run_moe_core (one grouped GEMM over stacked weights) →
+      dispatcher.combine. The dispatcher class (standard / DeepEP / pplx…)
+      is where parallelism lives; the model file never knows.
+    tags: [llm, moe, sglang]
+
+  - id: moe-stacked-weights-01
+    type: basic
+    front: "Why do inference engines store MoE experts as two stacked tensors instead of a ModuleList of per-expert modules?"
+    back: >
+      A grouped GEMM wants one contiguous buffer with a per-expert stride
+      (base pointer + e × slab) so all experts run in ONE kernel launch;
+      a ModuleList is 256 scattered allocations ⇒ 256 launches. Stacked
+      layout also makes EP (slice expert axis) and TP (slice intermediate
+      axis) plain tensor indexing. Params are still registered — just two
+      nn.Parameters instead of hundreds.
+    tags: [llm, moe, sglang]
+
+  - id: moe-w13-shapes-01
+    type: basic
+    front: "Shapes of SGLang's w13_weight and w2_weight, and what each dimension is?"
+    back: >
+      w13_weight: [num_experts, 2·inter, hidden] — gate_proj (W1) and
+      up_proj (W3) concatenated on the output axis. w2_weight:
+      [num_experts, hidden, inter] — down_proj (W2). PyTorch [out, in]
+      layout per expert. DeepSeek-V3: [256, 4096, 7168] and
+      [256, 7168, 2048]. EP slices axis 0; TP slices inter; hidden is never
+      sliced.
+    tags: [llm, moe, sglang]
+
+  - id: modulelist-01
+    type: basic
+    front: "Why nn.ModuleList instead of a plain Python list of submodules? Which container for a fixed chain?"
+    back: >
+      A plain list isn't a Module, so its params are invisible to
+      .parameters(), .to(), state_dict, and loaders. ModuleList/ModuleDict
+      register each child under a numeric/string name; you write the
+      forward loop yourself. nn.Sequential registers AND chains them
+      (output → next input) — right for a fixed pipeline, wrong when
+      children run conditionally (MoE).
+    tags: [pytorch]
+
+  - id: gated-mlp-01
+    type: basic
+    front: "Gated MLP (SwiGLU) formula, with the standard W1/W2/W3 naming?"
+    back: >
+      out = W2 · ( silu(W1·x) ⊙ (W3·x) ). W1 = gate_proj (silu'd), W3 =
+      up_proj (no activation), W2 = down_proj. Activation is on ONE branch
+      only, before the multiply. "SwiGLU" names the whole block (Swish +
+      GLU), not an activation function. Classic MLP: out = W2·act(W1·x).
+    tags: [llm, mlp]
+
+  - id: gated-mlp-02
+    type: basic
+    front: "Intuition: what does the elementwise gate in a GLU-style MLP buy over relu(W1·x)?"
+    back: >
+      It decouples "is this feature on?" (gate branch, ~soft switch) from
+      "what does it contribute?" (value branch, any sign, unsquashed). In
+      a classic MLP those are the same number. A multiplicative
+      interaction of two linear views of x is a richer function class per
+      parameter; consistent loss gains at matched params (Shazeer 2020).
+    tags: [llm, mlp]
+
+  - id: gated-mlp-03
+    type: basic
+    front: "GLU-variant ablation (Shazeer 2020): which change matters most, and does the activation choice (ReLU/GELU/SiLU) matter?"
+    back: >
+      The GATING is the main event — even bilinear (no activation) beats
+      classic GELU. Among gated variants, GEGLU ≈ SwiGLU, ~0.01 loss
+      better than ReGLU. SiLU won by a hair + smoothness + PaLM/LLaMA
+      adoption. ReGLU's exact zeros are useful if you want activation
+      sparsity at inference.
+    tags: [llm, mlp]
+
+  - id: gated-mlp-04
+    type: basic
+    front: "Why is a SwiGLU intermediate size ~8/3·hidden instead of 4·hidden?"
+    back: >
+      Three matrices instead of two; 3 × 8/3 = 2 × 4 keeps parameter count
+      matched to a classic 4× MLP. LLaMA rounds to a multiple of 256
+      (4096 → 11008). MoE experts break the rule on purpose: many small
+      experts (DeepSeek-V3: 2048 on hidden 7168), with top-8 × 2048 ≈
+      2.3× hidden per token.
+    tags: [llm, mlp, moe]
+
+  - id: gated-mlp-05
+    type: basic
+    front: "Two things called 'gate' in an MoE model — distinguish them."
+    back: >
+      ROUTER gate: one per MoE layer, hidden → num_experts, picks which
+      experts a token visits; MoE-only. EXPERT gate_proj (W1): inside every
+      SwiGLU MLP, hidden → inter, its silu'd output multiplies the up
+      branch; present in every modern dense or MoE MLP. Checkpoint names
+      gate_proj/up_proj/down_proj ⇒ gated; fc1/fc2 or c_fc/c_proj ⇒ classic.
+    tags: [llm, mlp, moe]
+
+  - id: fused-matmul-01
+    type: basic
+    front: "Why fuse gate_proj+up_proj into w13 (and Q,K,V into qkv_proj)? Same FLOPs — so where is the win?"
+    back: >
+      Matmuls with a SHARED input stack along the output axis into one
+      matmul (block-matrix rule; the activation is applied after, to the
+      right half via silu_and_mul). Wins: input read from HBM once not
+      twice (matters when bandwidth-bound, i.e. decode), one launch
+      instead of two, wider output fills more SMs, one tensor to shard/
+      quantize/load. Down proj can't join — its input doesn't exist yet.
+    tags: [llm, mlp, kernels]
+
+  - id: linear-convention-01
+    type: basic
+    front: "Papers write W·x, code writes x @ W.T — reconcile, and what layout does nn.Linear store?"
+    back: >
+      Column-vector convention: x is [in,1], W is [out,in], W·x. Row-batch
+      convention: X is [tokens,in], so the weight goes on the right.
+      Same op transposed: (W·x)ᵀ = xᵀ·Wᵀ. nn.Linear(in,out) stores
+      weight as [out, in] (paper shape) and computes x @ weight.T. Fused
+      kernels treat the transpose as a stride, not a copy.
+    tags: [pytorch, llm]
